@@ -76,12 +76,48 @@ int add_book(){
 	tmp_author[strcspn(tmp_author, "\n")] = '\0';
 	tmp_book[strcspn(tmp_book, "\n")] = '\0';
 	printf("%s %s %d\n", tmp_author, tmp_book, tmp_year);
-	FILE* soubor = fopen("catalog.txt", "a");
+	FILE* soubor = fopen("catalog.txt", "a"); // opens book database or creates new one if not present
 	fprintf(soubor, "%s, %s, %d\n", tmp_author, tmp_book, tmp_year);
 	fclose(soubor);
 	free(tmp_author);
 	free(tmp_book);
 	return 0;
+}
+
+int browse_catalog(){
+	FILE* soubor = fopen("catalog.txt", "r");
+	if (soubor == NULL){
+		fprintf(stderr, "\nThe library is unfortunately empty right now >:(\n\n");
+		return 1;
+	} else {
+		char* tmp_author = malloc(sizeof(char)*BUFF_LEN);
+		if (tmp_author == NULL){
+			fprintf(stderr, "\nError: Couldn't allocate memory for new book\n\n");
+			return 1;
+		}	
+		char* tmp_book = malloc(sizeof(char)*BUFF_LEN);
+		if (tmp_book == NULL){
+			fprintf(stderr, "\nError: Couldn't allocate memory for new book\n\n");
+			free(tmp_author);
+			return 1;
+		}
+		int tmp_year;
+		int status = 0;
+		while ((status = fscanf(soubor, "%51[^,], %51[^,], %d\n", tmp_author, tmp_book, &tmp_year)) != EOF){
+			if (status != 3){
+				fprintf(stderr, "\nError: Invalid book database string\n\n");
+				free(tmp_author);
+				free(tmp_book);
+				fclose(soubor);
+				return 1;
+			}
+			printf("\n%s, %s, %d\n", tmp_author, tmp_book, tmp_year);
+		}
+		free(tmp_author);
+		free(tmp_book);
+		fclose(soubor);
+		return 0;
+	}
 }
 
 /*
@@ -95,9 +131,9 @@ void bookworm_mode(bool* available){
 		return;
 	} else {
 		int bw_state = 0;
-		printf("\nOne of the few that still bother reading nowadays... Here are you choices:\n\n");
+		printf("\nOne of the few that still bother reading nowadays... Here are you choices:\n");
 		while (true){
-			printf("\t1. Lend book\n\n"
+			printf("\n\t1. Lend book\n\n"
 			"\t2. Return book\n\n"
 			"\t3. Browse catalog\n\n"
 			"\t4. Return to main menu\n\n");
@@ -108,7 +144,8 @@ void bookworm_mode(bool* available){
 				case 2:
 					return;
 				case 3:
-					return;
+					browse_catalog();
+					break;
 				case 4:
 					return;
 				default:
@@ -125,9 +162,9 @@ void bookworm_mode(bool* available){
  */
 void librarian_mode(bool* available){
 	int lb_state = 0;
-	printf("\nGood to see someone still operates this place... Here are your possibilities:\n\n");
+	printf("\nGood to see someone still operates this place... Here are your possibilities:\n");
 	while (true){
-		printf("\t1. Add book\n\n"
+		printf("\n\t1. Add book\n\n"
 			"\t2. Remove book\n\n"
 			"\t3. Browse catalog\n\n"
 			"\t4. Shush\n\n"
@@ -142,7 +179,8 @@ void librarian_mode(bool* available){
 			case 2:
 				return;
 			case 3:
-				return;
+				browse_catalog();
+				break;
 			case 4:
 				printf("\nYou shush from top of your lungs... Noone is around so nothing happens\n\n");
 				break;
