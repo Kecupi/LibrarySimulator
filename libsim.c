@@ -8,9 +8,84 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
+
+#define BUFF_LEN 52
 
 /*
- * Function for operating Bookworm role
+ * @desc Function for clearing buffer
+*/
+void clear_buffer(){
+	int c = 0;
+	while((c = getchar()) != '\n' && c != EOF);
+}
+
+/*
+ * @desc Function for checking whether input isn't bigger than buffer
+ * @param input pointer to buffer to check
+*/
+
+int check_input_size(char* input){
+	char* tmp = strrchr(input, '\n');
+	if (tmp == NULL){
+		clear_buffer();
+		return 1;
+	} else {
+		return 0;
+	}
+
+}
+
+/*
+ * @desc Function for loading data about books from stdin and then saving them into file
+ * @return 0 if successful, 1 if error occurs
+*/
+
+int add_book(){
+	char* tmp_author = malloc(sizeof(char)*BUFF_LEN);
+	if (tmp_author == NULL){
+		fprintf(stderr, "Error: Couldn't allocate memory for new book\n");
+		return 1;
+	}
+	char* tmp_book = malloc(sizeof(char)*BUFF_LEN);
+	if (tmp_book == NULL){
+		fprintf(stderr, "Error: Couldn't allocate memory for new book\n");
+		free(tmp_author);
+		return 1;
+	}
+	int tmp_year = 1900;
+	clear_buffer();
+	printf("\nType name of author:\n\n");
+	fgets(tmp_author, BUFF_LEN, stdin);
+	if ((check_input_size(tmp_author)) != 0){
+		fprintf(stderr, "Error: Too many characters on input (limit %d)\n", BUFF_LEN);
+		free(tmp_author);
+		free(tmp_book);
+		return 1;
+	}
+	printf("\nType name of book:\n\n");
+	fgets(tmp_book, BUFF_LEN, stdin);
+	if ((check_input_size(tmp_book)) != 0){
+		fprintf(stderr, "Error: Too many characters on input (limit %d)\n", BUFF_LEN);
+		free(tmp_author);
+		free(tmp_book);
+		return 1;
+	}
+	printf("\nType year of publishing:\n\n");
+	scanf("%d", &tmp_year);
+	tmp_author[strcspn(tmp_author, "\n")] = '\0';
+	tmp_book[strcspn(tmp_book, "\n")] = '\0';
+	printf("%s %s %d\n", tmp_author, tmp_book, tmp_year);
+	FILE* soubor = fopen("catalog.txt", "a");
+	fprintf(soubor, "%s, %s, %d\n", tmp_author, tmp_book, tmp_year);
+	fclose(soubor);
+	free(tmp_author);
+	free(tmp_book);
+	return 0;
+}
+
+/*
+ * @desc Function for operating Bookworm role
  * @param available status whether library is open or not
  */
 
@@ -36,13 +111,16 @@ void bookworm_mode(bool* available){
 					return;
 				case 4:
 					return;
+				default:
+					printf("\nInvalid input, please try again\n\n");
+					break;	
 			}
 		}
 	}
 }
 
 /*
- * Function for operating Librarian role
+ * @desc Function for operating Librarian role
  * @param available status whether library is open or not
  */
 void librarian_mode(bool* available){
@@ -59,7 +137,8 @@ void librarian_mode(bool* available){
 		scanf("%d", &lb_state);
 		switch (lb_state){
 			case 1:
-				return;
+				add_book();
+				break;
 			case 2:
 				return;
 			case 3:
@@ -93,7 +172,7 @@ void librarian_mode(bool* available){
 }
 
 /*
- * Finite-state automaton operating based on input
+ * @desc Finite-state automaton operating based on input
  * @param input variable to store last user input
  */
 void mode_switch(int* input, bool* available){
