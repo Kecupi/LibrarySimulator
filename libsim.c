@@ -12,12 +12,72 @@
 
 #define BUFF_LEN 52
 
+typedef struct {
+	char author[BUFF_LEN]; // name of author
+	char name[BUFF_LEN]; // name of book
+	int year; // year of publishing
+	bool available; // availability
+} book_info;
+
 /*
  * @desc Function for clearing buffer
 */
 void clear_buffer(){
 	int c = 0;
 	while((c = getchar()) != '\n' && c != EOF);
+}
+
+/*
+ * @desc Loads data from text database for further use
+ * @param database list for books to be loaded into
+ * @return 0 if data successfuly loaded, otherwise 1
+*/
+int load_database(book_info** database){
+	FILE* soubor = fopen("catalog.txt", "r");
+	if (soubor == NULL){
+		fprintf(stderr, "\nError: Couldn't load book database\n\n");
+		return 1;
+	}
+	char* tmp_author = malloc(sizeof(char) * BUFF_LEN);
+	if (tmp_author == NULL){
+		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_author)\n");
+		return 1;
+	}
+	char* tmp_book = malloc(sizeof(char) * BUFF_LEN);
+	if (tmp_book == NULL){
+		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_book)\n");
+		free(tmp_author);
+		return 1;
+	}
+	int tmp_year = 1900;
+	int books_loaded = 0;
+	int status = 0;
+	while ((status = fscanf(soubor, "%51[^,], %51[^,], %d\n", tmp_author, tmp_book, &tmp_year)) != EOF){
+		if (status != 3){
+			fprintf(stderr, "\nError: Invalid book database string\n\n");
+			free(*database);
+			*database = NULL;
+			return 1;
+		} else {
+			books_loaded += 1;
+			*database = realloc(*database, books_loaded * sizeof(book_info));
+			if (database == NULL){
+				fprintf(stderr, "Error: Couldn't reallocate memory for database");
+				free(tmp_author);
+				free(tmp_book);
+				fclose(soubor);
+				return 1;
+			}
+			strcpy((*database)[books_loaded - 1].author, tmp_author);
+			strcpy((*database)[books_loaded - 1].name, tmp_book);
+			(*database)[books_loaded - 1].year = tmp_year;
+			(*database)[books_loaded - 1].available = true;
+		}
+	}
+	free(tmp_author);
+	free(tmp_book);
+	fclose(soubor);
+	return 0;
 }
 
 /*
@@ -42,14 +102,14 @@ int check_input_size(char* input){
 */
 
 int add_book(){
-	char* tmp_author = malloc(sizeof(char)*BUFF_LEN);
+	char* tmp_author = malloc(sizeof(char) * BUFF_LEN);
 	if (tmp_author == NULL){
-		fprintf(stderr, "Error: Couldn't allocate memory for new book\n");
+		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_author)\n");
 		return 1;
 	}
-	char* tmp_book = malloc(sizeof(char)*BUFF_LEN);
+	char* tmp_book = malloc(sizeof(char) * BUFF_LEN);
 	if (tmp_book == NULL){
-		fprintf(stderr, "Error: Couldn't allocate memory for new book\n");
+		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_book)\n");
 		free(tmp_author);
 		return 1;
 	}
@@ -77,12 +137,22 @@ int add_book(){
 	tmp_book[strcspn(tmp_book, "\n")] = '\0';
 	printf("%s %s %d\n", tmp_author, tmp_book, tmp_year);
 	FILE* soubor = fopen("catalog.txt", "a"); // opens book database or creates new one if not present
+	if (soubor == NULL){
+		fprintf(stderr, "Error: Couldn't load file\n");
+		free(tmp_author);
+		free(tmp_book);
+		return 1;
+	}
 	fprintf(soubor, "%s, %s, %d\n", tmp_author, tmp_book, tmp_year);
 	fclose(soubor);
 	free(tmp_author);
 	free(tmp_book);
 	return 0;
 }
+
+/*
+ * @desc Function that prints out all books from database
+*/
 
 int browse_catalog(){
 	FILE* soubor = fopen("catalog.txt", "r");
@@ -101,7 +171,7 @@ int browse_catalog(){
 			free(tmp_author);
 			return 1;
 		}
-		int tmp_year;
+		int tmp_year = 1900;
 		int status = 0;
 		while ((status = fscanf(soubor, "%51[^,], %51[^,], %d\n", tmp_author, tmp_book, &tmp_year)) != EOF){
 			if (status != 3){
@@ -177,7 +247,7 @@ void librarian_mode(bool* available){
 				add_book();
 				break;
 			case 2:
-				return;
+				break;
 			case 3:
 				browse_catalog();
 				break;
@@ -210,8 +280,9 @@ void librarian_mode(bool* available){
 }
 
 /*
- * @desc Finite-state automaton operating based on input
+ * @desc Function handling switching between role modes
  * @param input variable to store last user input
+ * @param available logic value symbolizing whether library is open
  */
 void mode_switch(int* input, bool* available){
 	while (true){
@@ -236,6 +307,11 @@ void mode_switch(int* input, bool* available){
 int main (){
 	int input = 0;
 	bool available = false;
+	book_info* database = NULL;
+	if (load_database(&database) == 1){
+		fprintf(stderr, "\nError: Couldn't load essentials, exiting program\n\n");
+		return 1;
+	}
 	while (true){
 		printf("\nWelcome to LibSim, choose one of the following to proceed:\n");
 		printf("\n\t1. Bookworm role\n\n\t2. Librarian role\n\n\t3. Exit library\n");
@@ -244,5 +320,6 @@ int main (){
 			break;
 		}
 	}
+	free(database);
 	return 0;
 }
