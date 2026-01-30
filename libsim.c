@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
 
 #define BUFF_LEN 52
 
@@ -254,9 +255,11 @@ int check_input_size(char* input){
  * @param database database of books to lend
  * @param books_loaded size of database
  * @param available truth value signaling whether library is open
+ * @param case false if user wants to lend book, true for returning book
+ * @return 0 if successful, 1 otherwise
 */
 
-int lend_book(book_info*** database, int* books_loaded, bool* available){
+int lend_book(book_info*** database, int* books_loaded, bool* available, bool use_case){
 	if (available == false){
 		printf("\nHow are you even trying to lend something when library is closed???\n\n");
 		return 1;
@@ -297,11 +300,20 @@ int lend_book(book_info*** database, int* books_loaded, bool* available){
 		free(tmp_book);
 		return 1;
 	}
-	if ((*database)[book_idx]->available == true){
-		(*database)[book_idx]->available = false;
-		printf("\nYou can bring the book \"%s\" home now!\n\n", tmp_book);
+	if (use_case == false){
+		if ((*database)[book_idx]->available == true){
+			(*database)[book_idx]->available = false;
+			printf("\nYou can bring the book \"%s\" home now!\n\n", tmp_book);
+		} else {
+			printf("\nYou can't lend book you already have!\n\n");
+		}
 	} else {
-		printf("\nSorry, this book is already taken at the moment, try again later!\n\n");
+		if ((*database)[book_idx]->available == false){
+			(*database)[book_idx]->available = true;
+			printf("\nYou successfuly returned book \"%s\"!\n\n", tmp_book);
+		} else {
+			printf("\nYou can't return book that's already in library!\n\n");
+		}
 	}
 	free(tmp_author);
 	free(tmp_book);
@@ -309,8 +321,28 @@ int lend_book(book_info*** database, int* books_loaded, bool* available){
 }
 
 /*
+ * @desc Function to validate year input by user
+ * @param tmp_year input from user
+ * @return 1 if invalid input, 0 if valid
+*/
+
+int validate_year(int* tmp_year){
+	time_t t = time(NULL);
+	struct tm* loc = gmtime(&t);
+	int current_year = loc->tm_year + 1900;
+	if (*tmp_year < 1440){
+		printf("\nThe book couldn't have been published without letterpress...\n\n");
+		return 1;
+	} else if (*tmp_year > current_year){
+		printf("\nThe book couldn't have been published yet...\n\n");
+		return 1;
+	}
+	return 0;
+}
+
+/*
  * @desc Function for loading data about books from stdin and then saving them into file
- * @return 0 if successful, 1 if error occurs
+ * @return 0 if successful, 1 if error occured
 */
 
 int add_book(){
@@ -347,7 +379,11 @@ int add_book(){
 	scanf("%d", &tmp_year);
 	tmp_author[strcspn(tmp_author, "\n")] = '\0';
 	tmp_book[strcspn(tmp_book, "\n")] = '\0';
-	printf("%s %s %d\n", tmp_author, tmp_book, tmp_year);
+	if (validate_year(&tmp_year)){
+		free(tmp_author);
+		free(tmp_book);
+		return 1;
+	}
 	FILE* soubor = fopen("catalog.txt", "a"); // opens book database or creates new one if not present
 	if (soubor == NULL){
 		fprintf(stderr, "Error: Couldn't load file\n");
@@ -356,6 +392,7 @@ int add_book(){
 		return 1;
 	}
 	fprintf(soubor, "%s, %s, %d\n", tmp_author, tmp_book, tmp_year);
+	printf("Successfuly added \"%s\" written by \"%s\", published in %d\n", tmp_book, tmp_author, tmp_year);
 	fclose(soubor);
 	free(tmp_author);
 	free(tmp_book);
@@ -425,10 +462,11 @@ void bookworm_mode(book_info*** database, int* books_loaded, bool* available){
 			scanf("%d", &bw_state);
 			switch(bw_state){
 				case 1:
-					lend_book(database, books_loaded, available);
+					lend_book(database, books_loaded, available, false);
 					break;
 				case 2:
-					return;
+					lend_book(database, books_loaded, available, true);
+					break;
 				case 3:
 					browse_catalog();
 					break;
@@ -483,7 +521,7 @@ void librarian_mode(bool* available){
 					*available = false;
 					printf("\nAs you close the door, a stray at runs outside the library and you just shrug... Library is now closed\n\n");
 				} else {
-					printf("\nYou feel weird wind whispering to you: The library is already open...\n\n");
+					printf("\nYou feel weird wind whispering to you: The library is already closed...\n\n");
 				}	
 				break;
 			case 7:
