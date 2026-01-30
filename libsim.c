@@ -28,26 +28,77 @@ void clear_buffer(){
 }
 
 /*
+ * @desc Function to swap pointers to book_info in database
+ * @param one first pointer to be swapped
+ * @param two second pointer to be swapped
+*/
+
+void swap (book_info** one, book_info** two){
+	book_info* tmp = *one;
+	*one = *two;
+	*two = tmp;
+	return;
+}
+
+/*
+ * @desc Support function for sort_database
+ * @param database database to be sorted
+ * @param low lowest partition index
+ * @param high highest partition index
+ * @return new partition index
+*/
+
+int part(book_info*** database, int low, int high){
+	int idx = low-1;
+	int comp = 0;
+	for (int jdx = low; jdx < high; jdx++){
+		comp = strcmp((*database)[jdx]->author, (*database)[high]->author);
+		if (comp < 0){
+			idx += 1;
+			swap(&(*database)[idx], &(*database)[jdx]);
+		}
+	}
+	swap(&(*database)[idx+1], &(*database)[high]);
+	return idx+1;
+}
+
+/*
+ * @desc Function to alphabetically quick sort database
+ * @param database database to be sorted
+ * @param low lowest index of database
+ * @param high highest index of database
+*/
+void sort_database(book_info*** database, int low, int high){
+	int part_idx = 0;
+	if (low < high){
+		part_idx = part(database, low, high);
+		sort_database(database, low, part_idx-1);
+		sort_database(database, part_idx+1, high);
+	}
+	return;
+}
+
+/*
  * @desc Loads data from text database for further use
  * @param database list for books to be loaded into
- * @return 0 if data successfuly loaded, otherwise 1
+ * @return length of loaded database, 0 if something fails
 */
-int load_database(book_info** database){
+int load_database(book_info*** database){
 	FILE* soubor = fopen("catalog.txt", "r");
 	if (soubor == NULL){
 		fprintf(stderr, "\nError: Couldn't load book database\n\n");
-		return 1;
+		return 0;
 	}
 	char* tmp_author = malloc(sizeof(char) * BUFF_LEN);
 	if (tmp_author == NULL){
 		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_author)\n");
-		return 1;
+		return 0;
 	}
 	char* tmp_book = malloc(sizeof(char) * BUFF_LEN);
 	if (tmp_book == NULL){
 		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_book)\n");
 		free(tmp_author);
-		return 1;
+		return 0;
 	}
 	int tmp_year = 1900;
 	int books_loaded = 0;
@@ -55,29 +106,53 @@ int load_database(book_info** database){
 	while ((status = fscanf(soubor, "%51[^,], %51[^,], %d\n", tmp_author, tmp_book, &tmp_year)) != EOF){
 		if (status != 3){
 			fprintf(stderr, "\nError: Invalid book database string\n\n");
+			for (int idx = 0; idx < books_loaded; idx++){
+				free((*database)[idx]);
+			}
+			fclose(soubor);
 			free(*database);
-			*database = NULL;
-			return 1;
+			free(tmp_author);
+			free(tmp_book);
+			return 0;
 		} else {
 			books_loaded += 1;
-			*database = realloc(*database, books_loaded * sizeof(book_info));
-			if (database == NULL){
-				fprintf(stderr, "Error: Couldn't reallocate memory for database");
+			book_info** tmp_database = realloc(*database, books_loaded * sizeof(book_info*));
+			if (tmp_database == NULL){
+				fprintf(stderr, "\nError: Couldn't reallocate memory for database\n\n");
+				fclose(soubor);
 				free(tmp_author);
 				free(tmp_book);
-				fclose(soubor);
-				return 1;
+				for (int idx = 0; idx < books_loaded; idx++){
+					free((*database)[idx]);
+				}
+				free(*database);
+				return 0;
 			}
-			strcpy((*database)[books_loaded - 1].author, tmp_author);
-			strcpy((*database)[books_loaded - 1].name, tmp_book);
-			(*database)[books_loaded - 1].year = tmp_year;
-			(*database)[books_loaded - 1].available = true;
+			*database = tmp_database;
+			book_info* book = malloc(sizeof(book_info));
+			if (book == NULL){
+				fprintf(stderr, "\nError: Couldn't allocate memory for new book\n\n");
+				fclose(soubor);
+				free(tmp_author);
+				free(tmp_book);
+				for (int idx = 0; idx < books_loaded; idx++){
+					free((*database)[idx]);
+				}
+				free(*database);
+				return 0;
+			}
+			strcpy(book->author, tmp_author);
+			strcpy(book->name, tmp_book);
+			book->year = tmp_year;
+			book->available = true;
+			(*database)[books_loaded-1] = book;
 		}
 	}
+	sort_database(database, 0, books_loaded-1);
 	free(tmp_author);
 	free(tmp_book);
 	fclose(soubor);
-	return 0;
+	return books_loaded;
 }
 
 /*
@@ -210,7 +285,7 @@ void bookworm_mode(bool* available){
 			scanf("%d", &bw_state);
 			switch(bw_state){
 				case 1:
-					return;
+					break;
 				case 2:
 					return;
 				case 3:
@@ -307,8 +382,9 @@ void mode_switch(int* input, bool* available){
 int main (){
 	int input = 0;
 	bool available = false;
-	book_info* database = NULL;
-	if (load_database(&database) == 1){
+	book_info** database = NULL;
+	int loaded = 0;
+	if ((loaded = load_database(&database)) == 0){
 		fprintf(stderr, "\nError: Couldn't load essentials, exiting program\n\n");
 		return 1;
 	}
@@ -319,6 +395,9 @@ int main (){
 		if (input == 3){
 			break;
 		}
+	}
+	for (int idx = 0; idx < loaded; idx++){
+		free(database[idx]);
 	}
 	free(database);
 	return 0;
