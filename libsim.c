@@ -156,6 +156,84 @@ int load_database(book_info*** database){
 }
 
 /*
+ * @desc Function to find book when the author exists in database
+ * @param database database of books to search through
+ * @param tmp_book name of book to find in database
+ * @param idx index of book with same author (may or may not be index the right book)
+ * @param max maximal index present in database
+ * @return index of the book in list, -1 if search failed
+*/
+
+int find_initial_book(book_info*** database, char* tmp_author, char* tmp_book, int idx, int max){
+	int comp_auth = 0;
+	int comp_books = 0;
+	int search_idx = idx;
+	while (true){
+		comp_auth = strcmp((*database)[search_idx]->author, tmp_author);
+		comp_books = strcmp((*database)[search_idx]->name, tmp_book);
+		if (comp_auth == 0){
+			if (comp_books == 0){
+				return search_idx;
+			}
+		} else if (comp_auth < 0){
+			break;
+		}
+		if ((--search_idx) < 0){
+			break;
+		}
+	}
+	search_idx = idx;
+	while (true){
+		comp_auth = strcmp((*database)[search_idx]->author, tmp_author);
+		comp_books = strcmp((*database)[search_idx]->name, tmp_book);
+		if (comp_auth == 0){
+			if (comp_books == 0){
+				return search_idx;
+			}
+		} else if (comp_auth > 0){
+			break;
+		}
+		if ((++search_idx) > max){
+			break;
+		}
+	}
+	return -1;
+}
+
+/*
+ * Binary search to find index of book with same author
+ * @param database database of books to search through
+ * @param tmp_author name of author from user input
+ * @param tmp_book name of book to be passed to find_initial_book if author was found
+ * @param max highest index accessible in database
+ * @return index of book with same author, -1 if not successful
+*/
+int find_book_by_author(book_info*** database, char* tmp_author, char* tmp_book, int max){
+	int low = 0;
+	int mid = 0;
+	int comp = 0;
+	while (low < max){
+		mid = (max-low)/2;
+		comp = strcmp((*database)[mid]->author, tmp_author);
+		if (comp == 0){
+			int result = find_initial_book(database, tmp_author, tmp_book, mid, max);
+			if (result == -1){
+				fprintf(stderr, "\nError: Found author \"%s\" but couldn't find book \"%s\"\n\n", tmp_author, tmp_book);
+				return -1;
+			} else {
+				return result;
+			}
+		} else if (comp > 0){
+			low = mid+1;
+		} else {
+			max = mid-1;
+		}
+	}
+	fprintf(stderr, "\nError: Couldn't find author \"%s\" in database\n\n", tmp_author);
+	return -1;
+}
+
+/*
  * @desc Function for checking whether input isn't bigger than buffer
  * @param input pointer to buffer to check
 */
@@ -169,6 +247,65 @@ int check_input_size(char* input){
 		return 0;
 	}
 
+}
+
+/*
+ * @desc Function implementing lend book use case
+ * @param database database of books to lend
+ * @param books_loaded size of database
+ * @param available truth value signaling whether library is open
+*/
+
+int lend_book(book_info*** database, int* books_loaded, bool* available){
+	if (available == false){
+		printf("\nHow are you even trying to lend something when library is closed???\n\n");
+		return 1;
+	}
+	char* tmp_author = malloc(sizeof(char) * BUFF_LEN);
+	if (tmp_author == NULL){
+		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_author)\n");
+		return 1;
+	}
+	char* tmp_book = malloc(sizeof(char) * BUFF_LEN);
+	if (tmp_book == NULL){
+		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_book)\n");
+		free(tmp_author);
+		return 1;
+	}
+	clear_buffer();
+	printf("\nType name of author:\n\n");
+	fgets(tmp_author, BUFF_LEN, stdin);
+	if ((check_input_size(tmp_author)) != 0){
+		fprintf(stderr, "Error: Too many characters on input (limit %d)\n", BUFF_LEN);
+		free(tmp_author);
+		free(tmp_book);
+		return 1;
+	}
+	printf("\nType name of book:\n\n");
+	fgets(tmp_book, BUFF_LEN, stdin);
+	if ((check_input_size(tmp_book)) != 0){
+		fprintf(stderr, "Error: Too many characters on input (limit %d)\n", BUFF_LEN);
+		free(tmp_author);
+		free(tmp_book);
+		return 1;
+	}
+	tmp_author[strcspn(tmp_author, "\n")] = '\0';
+	tmp_book[strcspn(tmp_book, "\n")] = '\0';
+	int book_idx = find_book_by_author(database, tmp_author, tmp_book, *books_loaded - 1);
+	if (book_idx == -1){
+		free(tmp_author);
+		free(tmp_book);
+		return 1;
+	}
+	if ((*database)[book_idx]->available == true){
+		(*database)[book_idx]->available = false;
+		printf("\nYou can bring the book \"%s\" home now!\n\n", tmp_book);
+	} else {
+		printf("\nSorry, this book is already taken at the moment, try again later!\n\n");
+	}
+	free(tmp_author);
+	free(tmp_book);
+	return 0;
 }
 
 /*
@@ -227,6 +364,7 @@ int add_book(){
 
 /*
  * @desc Function that prints out all books from database
+ * @return 1 if problem occurs, 0 if function ends without problem
 */
 
 int browse_catalog(){
@@ -267,10 +405,12 @@ int browse_catalog(){
 
 /*
  * @desc Function for operating Bookworm role
+ * @param database database of books for further use
+ * @param books_loaded size of database
  * @param available status whether library is open or not
  */
 
-void bookworm_mode(bool* available){
+void bookworm_mode(book_info*** database, int* books_loaded, bool* available){
 	if (*available == false){
 		printf("\nYou try to open the door with all your strenght, but the door won't budge... Maybe another time\n\n");
 		return;
@@ -285,6 +425,7 @@ void bookworm_mode(bool* available){
 			scanf("%d", &bw_state);
 			switch(bw_state){
 				case 1:
+					lend_book(database, books_loaded, available);
 					break;
 				case 2:
 					return;
@@ -357,14 +498,16 @@ void librarian_mode(bool* available){
 /*
  * @desc Function handling switching between role modes
  * @param input variable to store last user input
+ * @param database database of books for further use
+ * @param books_loaded size of database
  * @param available logic value symbolizing whether library is open
  */
-void mode_switch(int* input, bool* available){
+void mode_switch(int* input, book_info*** database, int* books_loaded, bool* available){
 	while (true){
 		scanf("%d", input);
 		switch(*input){
 			case 1:
-				bookworm_mode(available);
+				bookworm_mode(database, books_loaded, available);
 				return;
 			case 2:
 				librarian_mode(available);
@@ -391,7 +534,7 @@ int main (){
 	while (true){
 		printf("\nWelcome to LibSim, choose one of the following to proceed:\n");
 		printf("\n\t1. Bookworm role\n\n\t2. Librarian role\n\n\t3. Exit library\n");
-		mode_switch(&input, &available);
+		mode_switch(&input,  &database, &loaded, &available);
 		if (input == 3){
 			break;
 		}
