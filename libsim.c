@@ -80,25 +80,43 @@ void sort_database(book_info*** database, int low, int high){
 }
 
 /*
+ * @desc Supporting function for temporary space allocation to reduce amount of lines
+ * @param tmp_author pointer to first array to be allocated
+ * @param tmp_book pointer to second array to be allocated
+ * @return 0 if success, 1 if memory allocation fails
+*/
+
+int allocate_tmp(char** tmp_author, char** tmp_book){
+	*tmp_author = malloc(sizeof(char) * BUFF_LEN);
+	if (*tmp_author == NULL){
+		fprintf(stderr, "Error: Couldn't allocate memory for temporary variable (tmp_author)\n");
+		return 1;
+	}
+	*tmp_book = malloc(sizeof(char) * BUFF_LEN);
+	if (tmp_book == NULL){
+		fprintf(stderr, "Error: Couldn't allocate memory for temporary variable (tmp_book)\n");
+		free(*tmp_author);
+		return 1;
+	}
+	return 0;
+}
+
+/*
  * @desc Loads data from text database for further use
  * @param database list for books to be loaded into
  * @return length of loaded database, 0 if something fails
 */
+
 int load_database(book_info*** database){
 	FILE* soubor = fopen("catalog.txt", "r");
 	if (soubor == NULL){
 		fprintf(stderr, "\nError: Couldn't load book database\n\n");
 		return 0;
 	}
-	char* tmp_author = malloc(sizeof(char) * BUFF_LEN);
-	if (tmp_author == NULL){
-		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_author)\n");
-		return 0;
-	}
-	char* tmp_book = malloc(sizeof(char) * BUFF_LEN);
-	if (tmp_book == NULL){
-		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_book)\n");
-		free(tmp_author);
+	char* tmp_author = NULL;
+	char* tmp_book = NULL;
+	if ((allocate_tmp(&tmp_author, &tmp_book)) == 1){
+		fclose(soubor);
 		return 0;
 	}
 	int tmp_year = 1900;
@@ -264,15 +282,9 @@ int lend_book(book_info*** database, int* books_loaded, bool* available, bool us
 		printf("\nHow are you even trying to lend something when library is closed???\n\n");
 		return 1;
 	}
-	char* tmp_author = malloc(sizeof(char) * BUFF_LEN);
-	if (tmp_author == NULL){
-		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_author)\n");
-		return 1;
-	}
-	char* tmp_book = malloc(sizeof(char) * BUFF_LEN);
-	if (tmp_book == NULL){
-		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_book)\n");
-		free(tmp_author);
+	char* tmp_author = NULL;
+	char* tmp_book = NULL;
+	if ((allocate_tmp(&tmp_author, &tmp_book)) == 1){
 		return 1;
 	}
 	clear_buffer();
@@ -346,15 +358,9 @@ int validate_year(int* tmp_year){
 */
 
 int add_book(){
-	char* tmp_author = malloc(sizeof(char) * BUFF_LEN);
-	if (tmp_author == NULL){
-		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_author)\n");
-		return 1;
-	}
-	char* tmp_book = malloc(sizeof(char) * BUFF_LEN);
-	if (tmp_book == NULL){
-		fprintf(stderr, "Error: Couldn't allocate memory for new book (tmp_book)\n");
-		free(tmp_author);
+	char* tmp_author = NULL;
+	char* tmp_book = NULL;
+	if ((allocate_tmp(&tmp_author, &tmp_book)) == 1){
 		return 1;
 	}
 	int tmp_year = 1900;
@@ -410,15 +416,10 @@ int browse_catalog(){
 		fprintf(stderr, "\nThe library is unfortunately empty right now >:(\n\n");
 		return 1;
 	} else {
-		char* tmp_author = malloc(sizeof(char)*BUFF_LEN);
-		if (tmp_author == NULL){
-			fprintf(stderr, "\nError: Couldn't allocate memory for new book\n\n");
-			return 1;
-		}	
-		char* tmp_book = malloc(sizeof(char)*BUFF_LEN);
-		if (tmp_book == NULL){
-			fprintf(stderr, "\nError: Couldn't allocate memory for new book\n\n");
-			free(tmp_author);
+		char* tmp_author = NULL;
+		char* tmp_book = NULL;
+		if ((allocate_tmp(&tmp_author, &tmp_book)) == 1){
+			fclose(soubor);
 			return 1;
 		}
 		int tmp_year = 1900;
