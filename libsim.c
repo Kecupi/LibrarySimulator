@@ -377,10 +377,10 @@ int add_book(){
 	if (allocate_tmp(&tmp_author, &tmp_book) == 1){
 		return 1;
 	}
-	int tmp_year = 0;
 	if (load_data(&tmp_author, &tmp_book) == 1){
 		return 1;
 	}
+	int tmp_year = 0;
 	printf("\nType year of publishing:\n\n");
 	if (scanf("%d", &tmp_year) != 1){
 		printf("\nInvalid input, please try again\n\n");
@@ -409,6 +409,100 @@ int add_book(){
 	free(tmp_author);
 	free(tmp_book);
 	return 0;
+}
+
+int rewrite_db(char** tmp_author, char** tmp_book, int skip_book){
+	FILE* read_file = fopen("catalog.txt", "r");
+	if (read_file == NULL){
+		fprintf(stderr, "\nError: Couldn't open original file\n\n");
+		return 1;
+	}
+	FILE* write_file = fopen("catalog_tmp.txt", "a");
+	if (write_file == NULL){
+		fprintf(stderr, "\nError: Couldn't open temporary file\n\n");
+		fclose(read_file);
+		return 1;
+	}
+	int tmp_year = 0;
+	int line_number = 0;
+	while (fscanf(read_file, "%51[^,], %51[^,], %d\n", *tmp_author, *tmp_book, &tmp_year) != EOF){
+		if (line_number != skip_book){
+			fprintf(write_file, "%s, %s, %d\n", *tmp_author, *tmp_book, tmp_year);
+		}
+		line_number += 1;
+	}
+	printf("\nThe book has been successfuly removed!\n\n");
+	fclose(read_file);
+	remove("catalog.txt");
+	fclose(write_file);
+	rename("catalog_tmp.txt", "catalog.txt");
+	return 0;
+}
+/*
+ * @desc Support function to batch free all variables allocated in remove_book function
+*/
+
+void batch_free(char** file_author, char** file_book, char** input_author, char** input_book){
+	free(*input_author);
+	free(*input_book);
+	free(*file_author);
+	free(*file_book);
+	return;
+}
+
+/*
+ * @desc Function for removing books from test database
+ * @return 0 if successful, 1 if problem occurs
+*/
+int remove_book(){
+	char* input_author = NULL;
+	char* input_book = NULL;
+	int book_number = 0;
+	if (allocate_tmp(&input_author, &input_book) == 1){
+		return 1;
+	}
+	if (load_data(&input_author, &input_book) == 1){
+		return 1;
+	}
+	input_author[strcspn(input_author, "\n")] = '\0';
+	input_book[strcspn(input_book, "\n")] = '\0';
+	char* file_author = NULL;
+	char* file_book = NULL;
+	if (allocate_tmp(&file_author, &file_book) == 1){
+		free(input_author);
+		free(input_book);
+		return 1;
+	}
+	FILE* soubor = fopen("catalog.txt", "r");
+	if (soubor == NULL){
+		fprintf(stderr, "\nThe library is unfortunately empty right now >:(\n\n");
+		batch_free(&file_author, &file_book, &input_author, &input_book);
+		return 1;
+	}
+	int status = 0;
+	while ((status = fscanf(soubor, "%51[^,], %51[^,], %*d\n", file_author, file_book)) != EOF){
+		if (status != 2){
+			fprintf(stderr, "\nError: Invalid book database string\n\n");
+			batch_free(&file_author, &file_book, &input_author, &input_book);
+			fclose(soubor);
+			return 1;
+		}
+		if ((strcmp(file_author, input_author) == 0) && (strcmp(file_book, input_book) == 0)){
+			fclose(soubor);
+			if (rewrite_db(&file_author, &file_book, book_number) == 0){
+				batch_free(&file_author, &file_book, &input_author, &input_book);
+				return 0;
+			} else {
+				batch_free(&file_author, &file_book, &input_author, &input_book);
+				return 1;
+			}
+		}
+		book_number += 1;
+	}
+	fprintf(stderr, "\nError: Couldn't find the book to be removed\n\n");
+	batch_free(&file_author, &file_book, &input_author, &input_book);
+	fclose(soubor);
+	return 1;
 }
 
 /*
@@ -516,6 +610,7 @@ void librarian_mode(bool* available){
 				add_book();
 				break;
 			case 2:
+				remove_book();
 				break;
 			case 3:
 				browse_catalog();
