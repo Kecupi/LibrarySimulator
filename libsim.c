@@ -80,6 +80,22 @@ void sort_database(book_info*** database, int low, int high){
 }
 
 /*
+ * @desc Function for checking whether input isn't bigger than buffer
+ * @param input pointer to buffer to check
+*/
+
+int check_input_size(char* input){
+	char* tmp = strrchr(input, '\n');
+	if (tmp == NULL){
+		clear_buffer();
+		return 1;
+	} else {
+		return 0;
+	}
+
+}
+
+/*
  * @desc Supporting function for temporary space allocation to reduce amount of lines
  * @param tmp_author pointer to first array to be allocated
  * @param tmp_book pointer to second array to be allocated
@@ -102,6 +118,34 @@ int allocate_tmp(char** tmp_author, char** tmp_book){
 }
 
 /*
+ * @desc Supporting function for loading input with fgets
+ * @param tmp_author pointer to array to load data into
+ * @param tmp_book pointer to array to load data into
+ * @return 0 if input is valid, 1 if either input is invalid
+*/
+
+int load_data(char** tmp_author, char** tmp_book){
+	clear_buffer();
+	printf("\nType name of author:\n\n");
+	fgets(*tmp_author, BUFF_LEN, stdin);
+	if ((check_input_size(*tmp_author)) != 0){
+		fprintf(stderr, "Error: Too many characters on input (limit %d)\n", BUFF_LEN);
+		free(*tmp_author);
+		free(*tmp_book);
+		return 1;
+	}
+	printf("\nType name of book:\n\n");
+	fgets(*tmp_book, BUFF_LEN, stdin);
+	if ((check_input_size(*tmp_book)) != 0){
+		fprintf(stderr, "Error: Too many characters on input (limit %d)\n", BUFF_LEN);
+		free(*tmp_author);
+		free(*tmp_book);
+		return 1;
+	}
+	return 0;
+}
+
+/*
  * @desc Loads data from text database for further use
  * @param database list for books to be loaded into
  * @return length of loaded database, 0 if something fails
@@ -115,11 +159,11 @@ int load_database(book_info*** database){
 	}
 	char* tmp_author = NULL;
 	char* tmp_book = NULL;
-	if ((allocate_tmp(&tmp_author, &tmp_book)) == 1){
+	if (allocate_tmp(&tmp_author, &tmp_book) == 1){
 		fclose(soubor);
 		return 0;
 	}
-	int tmp_year = 1900;
+	int tmp_year = 0;
 	int books_loaded = 0;
 	int status = 0;
 	while ((status = fscanf(soubor, "%51[^,], %51[^,], %d\n", tmp_author, tmp_book, &tmp_year)) != EOF){
@@ -253,22 +297,6 @@ int find_book_by_author(book_info*** database, char* tmp_author, char* tmp_book,
 }
 
 /*
- * @desc Function for checking whether input isn't bigger than buffer
- * @param input pointer to buffer to check
-*/
-
-int check_input_size(char* input){
-	char* tmp = strrchr(input, '\n');
-	if (tmp == NULL){
-		clear_buffer();
-		return 1;
-	} else {
-		return 0;
-	}
-
-}
-
-/*
  * @desc Function implementing lend book use case
  * @param database database of books to lend
  * @param books_loaded size of database
@@ -284,24 +312,10 @@ int lend_book(book_info*** database, int* books_loaded, bool* available, bool us
 	}
 	char* tmp_author = NULL;
 	char* tmp_book = NULL;
-	if ((allocate_tmp(&tmp_author, &tmp_book)) == 1){
+	if (allocate_tmp(&tmp_author, &tmp_book) == 1){
 		return 1;
 	}
-	clear_buffer();
-	printf("\nType name of author:\n\n");
-	fgets(tmp_author, BUFF_LEN, stdin);
-	if ((check_input_size(tmp_author)) != 0){
-		fprintf(stderr, "Error: Too many characters on input (limit %d)\n", BUFF_LEN);
-		free(tmp_author);
-		free(tmp_book);
-		return 1;
-	}
-	printf("\nType name of book:\n\n");
-	fgets(tmp_book, BUFF_LEN, stdin);
-	if ((check_input_size(tmp_book)) != 0){
-		fprintf(stderr, "Error: Too many characters on input (limit %d)\n", BUFF_LEN);
-		free(tmp_author);
-		free(tmp_book);
+	if (load_data(&tmp_author, &tmp_book) == 1){
 		return 1;
 	}
 	tmp_author[strcspn(tmp_author, "\n")] = '\0';
@@ -360,29 +374,21 @@ int validate_year(int* tmp_year){
 int add_book(){
 	char* tmp_author = NULL;
 	char* tmp_book = NULL;
-	if ((allocate_tmp(&tmp_author, &tmp_book)) == 1){
+	if (allocate_tmp(&tmp_author, &tmp_book) == 1){
 		return 1;
 	}
-	int tmp_year = 1900;
-	clear_buffer();
-	printf("\nType name of author:\n\n");
-	fgets(tmp_author, BUFF_LEN, stdin);
-	if ((check_input_size(tmp_author)) != 0){
-		fprintf(stderr, "Error: Too many characters on input (limit %d)\n", BUFF_LEN);
-		free(tmp_author);
-		free(tmp_book);
-		return 1;
-	}
-	printf("\nType name of book:\n\n");
-	fgets(tmp_book, BUFF_LEN, stdin);
-	if ((check_input_size(tmp_book)) != 0){
-		fprintf(stderr, "Error: Too many characters on input (limit %d)\n", BUFF_LEN);
-		free(tmp_author);
-		free(tmp_book);
+	int tmp_year = 0;
+	if (load_data(&tmp_author, &tmp_book) == 1){
 		return 1;
 	}
 	printf("\nType year of publishing:\n\n");
-	scanf("%d", &tmp_year);
+	if (scanf("%d", &tmp_year) != 1){
+		printf("\nInvalid input, please try again\n\n");
+		clear_buffer();
+		free(tmp_book);
+		free(tmp_author);
+		return 1;
+	}
 	tmp_author[strcspn(tmp_author, "\n")] = '\0';
 	tmp_book[strcspn(tmp_book, "\n")] = '\0';
 	if (validate_year(&tmp_year)){
@@ -418,11 +424,11 @@ int browse_catalog(){
 	} else {
 		char* tmp_author = NULL;
 		char* tmp_book = NULL;
-		if ((allocate_tmp(&tmp_author, &tmp_book)) == 1){
+		if (allocate_tmp(&tmp_author, &tmp_book) == 1){
 			fclose(soubor);
 			return 1;
 		}
-		int tmp_year = 1900;
+		int tmp_year = 0;
 		int status = 0;
 		while ((status = fscanf(soubor, "%51[^,], %51[^,], %d\n", tmp_author, tmp_book, &tmp_year)) != EOF){
 			if (status != 3){
@@ -460,7 +466,11 @@ void bookworm_mode(book_info*** database, int* books_loaded, bool* available){
 			"\t2. Return book\n\n"
 			"\t3. Browse catalog\n\n"
 			"\t4. Return to main menu\n\n");
-			scanf("%d", &bw_state);
+			if (scanf("%d", &bw_state) != 1){
+				printf("\nInvalid input, please try again\n\n");
+				clear_buffer();
+				continue;
+			}
 			switch(bw_state){
 				case 1:
 					lend_book(database, books_loaded, available, false);
@@ -474,7 +484,7 @@ void bookworm_mode(book_info*** database, int* books_loaded, bool* available){
 				case 4:
 					return;
 				default:
-					printf("\nInvalid input, please try again\n\n");
+					printf("\nInvalid case, please try again\n\n");
 					break;	
 			}
 		}
@@ -496,7 +506,11 @@ void librarian_mode(bool* available){
 			"\t5. Open library\n\n"
 			"\t6. Close library\n\n"
 			"\t7. Return to main menu\n\n");
-		scanf("%d", &lb_state);
+		if (scanf("%d", &lb_state) != 1){
+			printf("\nInvalid input, please try again\n\n");
+			clear_buffer();
+			continue;
+		}
 		switch (lb_state){
 			case 1:
 				add_book();
@@ -528,7 +542,7 @@ void librarian_mode(bool* available){
 			case 7:
 				return;
 			default:
-				printf("\nInvalid input, please try again\n\n");
+				printf("\nInvalid case, please try again\n\n");
 				break;
 		}
 	}
@@ -543,7 +557,11 @@ void librarian_mode(bool* available){
  */
 void mode_switch(int* input, book_info*** database, int* books_loaded, bool* available){
 	while (true){
-		scanf("%d", input);
+		if (scanf("%d", input) != 1){
+			printf("\nInvalid input, please try again\n\n");
+			clear_buffer();
+			continue;
+		}
 		switch(*input){
 			case 1:
 				bookworm_mode(database, books_loaded, available);
@@ -555,7 +573,7 @@ void mode_switch(int* input, book_info*** database, int* books_loaded, bool* ava
 				printf("\nLibrary exited successfully, see you next time!\n\n");
 				return;
 			default:
-				printf("\nInvalid input, please try again\n\n");
+				printf("\nInvalid case, please try again\n\n");
 				break;
 		}
 	}
